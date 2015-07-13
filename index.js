@@ -12,17 +12,42 @@ var path = require('path');
 var exec = require('child_process').exec;
 var spawn = require('child_process').spawn;
 
+var api_host = 'https://api.github.com';
+
 function GitService( config ) {
   this.sourceDir = config.sourceDir || './tmp/engine_db';
   this.remote = {
     name: config.name || 'origin',
     url: config.url,
     branch: config.branch || 'master'
-  };
+  },
+  this.api_host = config.api_host || 'https://api.github.com';
+  this.tenant_id = config.tenant_domain || 'acme.opencommerce.io';
 }
 
 GitService.prototype.init = function(){
   var self = this;
+
+  // check if remote repo exists
+  // if not then create it
+
+  // check if local working directory exists
+  // if not then create it
+
+  // check if remote is set up
+  // if not then create it
+
+  // check if branch exists
+  // if not, then create it
+
+  //
+
+  // if pre-existed, then pull latest
+  // if not, then fetch latest
+
+
+
+  // sync with server
   return new Promise(function(resolve, reject){
     push( self.sourceDir, self.remote, function(){
       resolve();
@@ -75,24 +100,32 @@ GitService.prototype.push = function(){
 };
 
 // Internal API
-function exists(organization_id, repo_name, cb) {
+
+// Returns a promise that indicates if the remote repo exists yet
+/**
+ *
+ *  callback: (err, isNew (created))
+ *
+ **/
+function existsRemoteRepo(organization_id, repo_name, cb) {
+  trace('existsRemoteRepo');
   cb = cb || function() {};
 
   if(!organization_id || !repo_name ) {
     throw new Error('need org id & repo name to test for existence');
   }
 
-  var options = {cwd: sourceDir, stdio: 'inherit'};
-  var message = 'Created ' + new Date().toISOString();
-
   // Start with an empty promise
   return new Promise(function(resolve, reject) {
+    var options = {stdio: 'inherit'};
 
-    spawn('curl', ['-X', 'GET', 
-      'https://api.github.com/repos/'+organization_id+'/'+repo_name],
-      {cwd:'.',stdout:'inherit'})
+    spawn('curl', ['-X', 'GET', api_host+'/repos/'+organization_id+'/'+repo_name], options)
     .on('data', function(data){
       console.log(data);
+    })
+    .on('error', function(err){
+      reject(err),
+      cb(err);
     })
     .on('exit', function(code){
       if(code === 0) {
@@ -102,74 +135,85 @@ function exists(organization_id, repo_name, cb) {
         reject(false);
         cb(null, false);
       }
-    })
+    });
 
   });
-
 }
 
+// Returns a promise for deleting a remote repository
+/**
+ *
+ *  callback: (err)
+ *
+ **/
 function deleteRemoteRepo(organization_id, repo_name, access_token, cb) {
+  trace('deleteRemoteRepo');
   cb = cb || function() {};
 
   if(!organization_id || !repo_name || !access_token ) {
     throw new Error('need org id, repo name and access token to delete a repo');
   }
 
-  var options = {cwd: '.', stdio: 'inherit'};
-  var message = 'Deleted ' + new Date().toISOString();
-
   // Start with an empty promise
   return new Promise(function(resolve, reject) {
+    var options = {stdio: 'inherit'};
 
     spawn('curl', ['-X', 'DELETE', 
-      'https://api.github.com/repos/'+organization_id+'/'+repo_name,
-      '--header', 'Authorization: token '+ access_token],
-      {cwd:'.',stdout:'inherit'})
+      api_host+'/repos/'+organization_id+'/'+repo_name,
+      '--header', 'Authorization: token '+ access_token], options)
     .on('exit', function(code){
       if(code === 0) {
         resolve();
         cb();
       } else {
-        reject(new Error('could not delete repo: '+organization_id+'/'+repo_name));
+        var err = new Error('could not delete repo: '+organization_id+'/'+repo_name);
+        reject(err);
+        cb(err);
       }
     })
 
   });
-
 }
 
+// Returns a promise for creating a remote repository
 function createRemoteRepo(organization_id, repo_name, access_token, cb) {
+  trace('createRemoteRepo');
   cb = cb || function() {};
 
   if(!organization_id || !repo_name || !access_token ) {
     throw new Error();
   }
 
-  var options = {cwd: '.', stdio: 'inherit'};
+  var options = {stdio: 'inherit'};
   var message = 'Created ' + new Date().toISOString();
 
   // Start with an empty promise
   return new Promise(function(resolve, reject) {
 
     spawn('curl', ['-X', 'POST', 
-      '--data', '{"name": "'+repo_name+'","description": "This is a test repository","homepage": "https://github.com/OpenCommerce","private": false,"has_issues": true,"has_wiki": true,"has_downloads": true}', 
-      'https://api.github.com/orgs/'+organization_id+'/repos', 
+      '--data', '{"name": "'+repo_name+'","description": "'+message+'","homepage": "https://github.com/OpenCommerce","private": false,"has_issues": true,"has_wiki": true,"has_downloads": true}', 
+      api_host+'/orgs/'+organization_id+'/repos', 
       '--header', 'Content-Type: application/json', 
-      '--header', 'Authorization: token '+ access_token],
-      {cwd:'.',stdout:'inherit'})
+      '--header', 'Authorization: token '+ access_token], options)
     .on('exit', function(code){
       if(code === 0) {
         resolve();
         cb();
       } else {
-        reject('Failed to create git repo: '+organization_id+'/'+repo_name);
+        var err = new Error('Failed to create git repo: '+organization_id+'/'+repo_name);
+        reject(err);
+        cb(err);
       }
     })
 
   });
 }
 
-function ensureWorkingFolderExists(sourceDir){
+// Returns a promise to verify or create a local working directory
+function ensureWorkingFolderExists(sourceDir, cb){
+  trace('ensureWorkingFolderExists');
+  cb = cb || function() {};
+
   return new Promise(function(resolve, reject) {
 
     fs.exists(sourceDir, function(err, exists){
@@ -181,20 +225,167 @@ function ensureWorkingFolderExists(sourceDir){
           fs.mkdir(sourceDir, function(err){
             if( err ) {
               reject( err );
+              cb(err);
             } else {
-              resolve( true );
+              resolve(true);
+              cb(null, true);
             }
           });
         } else {
           resolve(false);
+          cb(null, false);
         }
-        resolve( exists );
       }
     });
 
   });
 }
 
+// Returns a promise to clone a remote repo to a local working directory
+function cloneFromRemoteRepo(targetDir, remote, cb) {
+  trace('cloneFromRemoteRepo');
+  cb = cb || function() {};
+
+  return new Promise(function(resolve, reject){
+    var options = {cwd:targetDir, stdio:'inherit'};
+
+    console.log('cloning latest into '+targetDir);
+    spawn('git', ['clone', remote.url, '.'], options)
+    .on('exit', function(code) {
+      if (code === 0) {
+        resolve();
+        cb();
+      } else {
+        var err = new Error('Failed to clone '+remote.url+' into '+targetDir);
+        reject(err);
+        cb(err);
+      }
+    });
+
+  });
+}
+
+// Returns a promise to pull latest from remote repo to a local working directory
+function pullLatestFromRemoteRepo( targetDir, remote, cb ) {
+  trace('pullLatestFromRemoteRepo');
+  cb = cb || function(){};
+
+  return new Promise(function(resolve, reject){
+    var options = {cwd:targetDir, stdio:'inherit'};
+
+    console.log('pulling latest from '+remote.name+'/'+remote.branch+' into '+targetDir);
+    spawn('git', ['pull', remote.name, remote.branch], options)
+    .on('exit', function(code) {
+      if (code === 0) {
+        resolve();
+        cb();
+      } else {
+        var err = new Error('Failed to pull the latest from '+remote.name+'/'+remote.branch+' into '+targetDir);
+        reject(err);
+        cb(err);
+      }
+    });
+
+  });
+}
+
+// Returns a promise to verify or add a remote to the remote repo
+function ensureRepoRemoteExists( targetDir, remote, cb ) {
+  trace('ensureRepoRemoteExists');
+  cb = cb || function(){};
+
+  return new Promise(function(resolve, reject){
+    var options = {cwd:targetDir, stdio:'inherit'};
+
+    exec('git config --get remote.' + remote.name + '.url', options, function(err, stdout) {
+      if (stdout.trim() === '') {
+        spawn('git', ['remote', 'add', remote.name, remote.url], options)
+          .on('exit', function() {
+            console.log('Add a new remote ' + remote.url + '(' + remote.name + ')');
+            resolve();
+            cb();
+          });
+      } else if (stdout.trim() !== remote.url) {
+        spawn('git', ['remote', 'set-url', remote.name, remote.url], options)
+          .on('exit', function() {
+            console.log('Set \'' + remote.name + '\' remote to ' + remote.url);
+            resolve();
+            cb();
+          });
+      } else {
+        resolve();
+        cb();
+      }
+    });
+
+  });
+}
+
+function ensureRepoBranchExists( targetDir, remote, cb ) {
+  trace('ensureRepoBranchExists');
+  cb = cb || function(){};
+
+  return new Promise(function(resolve) {
+    var options = {cwd:targetDir, stdio:'inherit'};
+
+    exec('git ls-remote ' + remote.name + ' ' + remote.branch, options, function(err, stdout) {
+      if(err){
+        reject(err);
+        cb(err);
+      } else if (stdout.trim() === '') {
+        spawn('git', ['add', '.'], options)
+          .on('exit', function() {
+            spawn('git', ['commit', '-m', message], options)
+              .on('exit', function() {
+                spawn('git', ['push', remote.name, remote.branch], options)
+                  .on('exit', function() {
+                    resolve();
+                    cb();
+                  });
+              });
+          });
+      } else {
+        resolve();
+      }
+    });
+  });
+}
+
+// Calls git init on a local working directory
+/**
+ *
+ *  callback: (err, isNew)
+ *
+ **/
+function initializeWorkingFolder( sourceDir, cb ) {
+  trace('initializeWorkingFolder');
+
+  return new Promise(function(resolve, reject) {
+
+    if (!fs.existsSync(path.join(sourceDir, '.git'))) {
+      debug(sourceDir+'/.git does not exist.  Calling \'git init\' on it.');
+
+      spawn('git', ['init'], {cwd:sourceDir})
+      .on('exit', function(code) {
+        if (code === 0) {
+          debug('git init success');
+          resolve(true);
+          cb(null, true);
+        } else {
+          debug('git init failed');
+          var err = new Error('Failed to initialize a new Git repository at '+sourceDir);
+          reject(err);
+          cb(err);
+        }
+      });
+    } else {
+      debug(sourceDir+'/.git already exists.');
+      resolve(false);
+      cb(null, false);
+    }
+
+  });
+}
 
 function push(sourceDir, remote, cb) {
 
@@ -215,47 +406,13 @@ function push(sourceDir, remote, cb) {
   var message = 'Update ' + new Date().toISOString();
 
   // Start with an empty promise
-  return new Promise(function(resolve, reject) {
-        if (!fs.existsSync(path.join(options.cwd, '.git'))) {
-          spawn('git', ['init'], options)
-            .on('exit', function(code) {
-              if (code === 0) {
-                resolve();
-              } else {
-                reject('Failed to initialize a new Git repository.');
-              }
-            });
-        } else {
-          resolve();
-        }
-      });
-    })
+  initializeWorkingFolder( sourceDir )
 
     //
     // Set a remote repository URL
     // -------------------------------------------------------------------------
     .then(function() {
-      return new Promise(function(resolve) {
-        exec('git config --get remote.' + remote.name + '.url', options,
-          function(err, stdout) {
-            if (stdout.trim() === '') {
-              spawn('git', ['remote', 'add', remote.name, remote.url], options)
-                .on('exit', function() {
-                  console.log('Add a new remote ' + remote.url + '(' + remote.name + ')');
-                  resolve();
-                });
-            } else if (stdout.trim() !== remote.url) {
-              spawn('git', ['remote', 'set-url', remote.name, remote.url], options)
-                .on('exit', function() {
-                  console.log('Set \'' + remote.name + '\' remote to ' + remote.url);
-                  resolve();
-                });
-            } else {
-              resolve();
-            }
-          }
-        );
-      });
+      return ensureRepoRemoteExists(sourceDir, remote.name, remote.url);
     })
 
     //
@@ -377,68 +534,53 @@ function push(sourceDir, remote, cb) {
     });
 }
 
-function clone(sourceDir, remote, cb) {
+function syncFromRemote(sourceDir, remote, cb) {
+  return new Promise(function(resolve, reject){
 
-  if (!path.isAbsolute(sourceDir) && process) {
-    sourceDir = path.join(process.cwd(), sourceDir);
-  }
+    if (!path.isAbsolute(sourceDir) && process) {
+      sourceDir = path.join(process.cwd(), sourceDir);
+    }
 
-  if (typeof remote === 'string') {
-    remote = {name: 'origin', url: remote, branch: 'master'};
-  }
+    if (typeof remote === 'string') {
+      remote = {name: 'origin', url: remote, branch: 'master'};
+    }
 
-  remote.branch = remote.branch || 'master';
-  remote.name = remote.name || 'origin';
+    remote.branch = remote.branch || 'master';
+    remote.name = remote.name || 'origin';
 
-  cb = cb || function() {};
+    cb = cb || function() {};
 
-  var options = {cwd: sourceDir, stdio: 'inherit'};
-  var message = 'Update ' + new Date().toISOString();
-
-  // Start with an empty promise
-  Promise.resolve()
+    var options = {cwd: sourceDir, stdio: 'inherit'};
+    var message = 'Update ' + new Date().toISOString();
 
     //
     // Initialize a new place to work if it doesn't exist
     // -------------------------------------------------------------------------
-    .then(function(){
-      return createWorkingFolder( sourceDir );
-    })
+    ensureWorkingFolderExists( sourceDir )
    //
     // Initialize a new Git repository if it doesn't exist
     // -------------------------------------------------------------------------
     .then(function(created) {
-      return new Promise(function(resolve, reject) {
-        if (created) {
-          console.log('cloning latest into '+options.cwd);
-          spawn('git', ['clone', remote.url, '.'], options)
-            .on('exit', function(code) {
-              if (code === 0) {
-                resolve();
-              } else {
-                reject('Failed to clone an existing Git repository.');
-              }
-            });
-        } else {
-          console.log('pulling latest into '+options.cwd);
-          spawn('git', ['pull', remote.name, remote.branch], options)
-            .on('exit', function(code) {
-              if (code === 0) {
-                resolve();
-              } else {
-                reject('Failed to pull the latest existing Git repository.');
-              }
-            });
-        }
-      });
+      if (created) {
+        return cloneFromRemoteRepo( remote.url );
+       } else {
+        return pullLatestFromRemoteRepo( remote.name, remote.branch );
+      }
     })
-
+    .then(function(){
+      console.log('sucessfully synced local repo from remote');
+      resolve();
+      cb();
+    })
     //
     // Catch errors
     // -------------------------------------------------------------------------
     .catch(function(err) {
-      cb(err || 'Failed to clone/pull the latest contents.');
+      reject(err);
+      cb(err);
     });
+
+  });
 }
 
 module.exports = GitService;
