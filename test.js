@@ -83,4 +83,4 @@ createProc.on('close', function (code) {
 // https://api.github.com/orgs/OpenCommerce/repos 
 // -H "Content-Type: application/json"
 //-H "Authorization: token <insert token here>"
-// curl -X POST -d '{"name": "test-domain-db5","description": "This is a test repository","homepage": "https://github.com/OpenCommerce","private": false,"has_issues": true,"has_wiki": true,"has_downloads": true}' https://api.github.com/orgs/OpenCommerce/repos -H "Content-Type: application/json" -H "Authorization: token fb90466db7c8d3db72e7335a0952f2e5df0d4fd2"
+// curl -X POST -d '{"name": "test-domain-db5","description": "This is a test repository","homepage": "https://github.com/OpenCommerce","private": false,"has_issues": true,"has_wiki": true,"has_downloads": true}' https://api.github.com/orgs/OpenCommerce/repos -H "Content-Type: application/json" -H "Authorization: token <insert token here>"
