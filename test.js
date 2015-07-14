@@ -71,10 +71,13 @@ exec('git status', {cwd:'.',stdio:'inherit'}, function(err, stdio){
 	if( err ) {
 		console.error('error!'+err);
 	} else if( stdio.indexOf('nothing to commit, working directory clean')>-1 ) {
-		console.log(stdio);
-		console.log('clean!');
+		if( stdio.indexOf('Your branch is ahead of ')>-1 ) {
+			console.log('clean, but needs push!');
+		} else {
+			console.log('clean, no changes.');
+		}
 	} else {
-		console.log('dirty!');
+		console.log('dirty! needs commit and push');
 	}
 });
 
