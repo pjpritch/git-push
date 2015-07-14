@@ -67,17 +67,41 @@ var spawn = require('child_process').spawn;
 
 
 var exec = require('child_process').exec;
-exec('git status', {cwd:'.',stdio:'inherit'}, function(err, stdio){
+exec('git status', {cwd:'.',stdio:'inherit'}, function(err, stdio, stderr){
 	if( err ) {
 		console.error('error!'+err);
 	} else if( stdio.indexOf('nothing to commit, working directory clean')>-1 ) {
 		if( stdio.indexOf('Your branch is ahead of ')>-1 ) {
 			console.log('clean, but needs push!');
+			spawn('git', ['push','origin','master'], {cwd:'.',stdio:'inherit'})
+			.on('exit', function(code){
+				if( code === 0 ) {
+					console.log('push complete!');
+				}
+			});
 		} else {
 			console.log('clean, no changes.');
 		}
 	} else {
 		console.log('dirty! needs commit and push');
+		spawn('git', ['add','--all','.'], {cwd:'.',stdio:'inherit'})
+		.on('exit', function(code){
+			if( code === 0 ) {
+				console.log('add complete!');
+				spawn('git', ['commit','-m','service commit'], {cwd:'.',stdio:'inherit'})
+				.on('exit', function(code){
+					if( code === 0 ) {
+						console.log('commit complete!');
+						spawn('git', ['push','origin','master'], {cwd:'.',stdio:'inherit'})
+						.on('exit', function(code){
+							if( code === 0 ) {
+								console.log('push complete!');
+							}
+						});
+					}
+				});
+			}
+		});
 	}
 });
 
