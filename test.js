@@ -71,6 +71,7 @@ exec('git status', {cwd:'.',stdio:'inherit'}, function(err, stdio){
 	if( err ) {
 		console.error('error!'+err);
 	} else if( stdio.indexOf('nothing to commit, working directory clean')>-1 ) {
+		console.log(stdio);
 		console.log('clean!');
 	} else {
 		console.log('dirty!');
