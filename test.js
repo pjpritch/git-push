@@ -1,5 +1,6 @@
 var path = require('path');
 var spawn = require('child_process').spawn;
+var exec = require('child_process').exec;
 
 // var GitSvc = require('./index.js');
 // var gitSvc1 = new GitSvc({
@@ -42,6 +43,7 @@ var spawn = require('child_process').spawn;
 // -H
 // "Authorization: token <insert token here>"
 
+
 // var createProc = spawn('curl', ['-X', 'POST', 
 // 	'--data', '{"name": "test-domain-db5","description": "This is a test repository","homepage": "https://github.com/OpenCommerce","private": false,"has_issues": true,"has_wiki": true,"has_downloads": true}', 
 // 	'https://api.github.com/orgs/OpenCommerce/repos', 
@@ -65,15 +67,42 @@ var spawn = require('child_process').spawn;
 //   console.log('child process exited with code ' + code);
 // });
 
+var workDir = './tmp/acme.opencommerce.io';
 
 var exec = require('child_process').exec;
-exec('git status', {cwd:'.',stdio:'inherit'}, function(err, stdio, stderr){
+var firstPromise;
+
+if(!fs.existsSync(workDir) ) {
+	fs.mkdirSync(workDir);
+
+	if(!existsRemoteRepo()){
+		firstPromise = createRemoteRepo()
+	} else {
+		firstPromise = Promise.resolve();
+	}
+
+	firstPromise.then(function(){
+		spawn('git',['clone','https://','.'],{cwd:workDir,stdio:'inherit'})
+		.on('exit',function(code){
+			if(code === 0){
+				console.log('successfully clone repo!');
+			} else {
+				console.log('clone repo failed!!');
+			}
+		});
+	})
+	.catch(function(err){
+		console.error('Error:\n'+err);
+	})
+}
+
+exec('git status', {cwd:workDir,stdio:'inherit'}, function(err, stdio, stderr){
 	if( err ) {
-		console.error('error!'+err);
+		console.error('error!'+err+': needs git init call');
 	} else if( stdio.indexOf('nothing to commit, working directory clean')>-1 ) {
 		if( stdio.indexOf('Your branch is ahead of ')>-1 ) {
 			console.log('clean, but needs push!');
-			spawn('git', ['push','origin','master'], {cwd:'.',stdio:'inherit'})
+			spawn('git', ['push','origin','master'], {cwd:workDir,stdio:'inherit'})
 			.on('exit', function(code){
 				if( code === 0 ) {
 					console.log('push complete!');
@@ -84,15 +113,15 @@ exec('git status', {cwd:'.',stdio:'inherit'}, function(err, stdio, stderr){
 		}
 	} else {
 		console.log('dirty! needs commit and push');
-		spawn('git', ['add','--all','.'], {cwd:'.',stdio:'inherit'})
+		spawn('git', ['add','--all','.'], {cwd:workDir,stdio:'inherit'})
 		.on('exit', function(code){
 			if( code === 0 ) {
 				console.log('add complete!');
-				spawn('git', ['commit','-m','service commit'], {cwd:'.',stdio:'inherit'})
+				spawn('git', ['commit','-m','service commit'], {cwd:workDir,stdio:'inherit'})
 				.on('exit', function(code){
 					if( code === 0 ) {
 						console.log('commit complete!');
-						spawn('git', ['push','origin','master'], {cwd:'.',stdio:'inherit'})
+						spawn('git', ['push','origin','master'], {cwd:workDir,stdio:'inherit'})
 						.on('exit', function(code){
 							if( code === 0 ) {
 								console.log('push complete!');
@@ -104,6 +133,13 @@ exec('git status', {cwd:'.',stdio:'inherit'}, function(err, stdio, stderr){
 		});
 	}
 });
+
+
+// var statusProc = spawn('git', ['status'], {cwd:'.', stdio:'inherit'});
+
+// statusProc.on('exit', function(code){
+// 	console.log(code);
+// });
 
 
 // spawn('git', ['clone', 'https://github.com/OpenCommerce/test-domain-db.git', './tmp/test-domain-db3'], {cwd:'.',stdout:'inherit'})

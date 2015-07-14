@@ -265,6 +265,31 @@ function cloneFromRemoteRepo(targetDir, remote, cb) {
   });
 }
 
+function fetchFromRemoteRepo(targetDir, remote, cb) {
+  trace('fetchFromRemoteRepo');
+  cb = cb || function(){};
+
+  return new Promise(function(resolve, reject) {
+    var options = {cwd:targetDir, stdio:'inherit'};
+
+    debug('Fetching remote repository...');
+    spawn('git', ['fetch', remote.name], options)
+    .on('exit', function(code) {
+      if (code === 0) {
+        debug('Fetch ');
+        resolve();
+        cb();
+      } else {
+        var err = new Error('Failed to fetch the remote repository ' + remote.url);
+        debug('Failed to fetch from remote repository: '+remote.url);
+        reject(err);
+        cb(err);
+      }
+    });
+
+  });
+}
+
 // Returns a promise to pull latest from remote repo to a local working directory
 function pullLatestFromRemoteRepo( targetDir, remote, cb ) {
   trace('pullLatestFromRemoteRepo');
@@ -273,7 +298,7 @@ function pullLatestFromRemoteRepo( targetDir, remote, cb ) {
   return new Promise(function(resolve, reject){
     var options = {cwd:targetDir, stdio:'inherit'};
 
-    console.log('pulling latest from '+remote.name+'/'+remote.branch+' into '+targetDir);
+    debug('pulling latest from '+remote.name+'/'+remote.branch+' into '+targetDir);
     spawn('git', ['pull', remote.name, remote.branch], options)
     .on('exit', function(code) {
       if (code === 0) {
@@ -412,33 +437,14 @@ function push(sourceDir, remote, cb) {
     // Set a remote repository URL
     // -------------------------------------------------------------------------
     .then(function() {
-      return ensureRepoRemoteExists(sourceDir, remote.name, remote.url);
+      return ensureRepoRemoteExists(sourceDir, remote);
     })
 
     //
     // Check if target branch exists
     // -------------------------------------------------------------------------
     .then(function() {
-      return new Promise(function(resolve) {
-        exec('git ls-remote ' + remote.name + ' ' + remote.branch, options,
-          function(err, stdout) {
-            if (stdout.trim() === '') {
-              spawn('git', ['add', '.'], options)
-                .on('exit', function() {
-                  spawn('git', ['commit', '-m', message], options)
-                    .on('exit', function() {
-                      spawn('git', ['push', remote.name, remote.branch], options)
-                        .on('exit', function() {
-                          cb();
-                        });
-                    });
-                });
-            } else {
-              resolve();
-            }
-          }
-        );
-      });
+      return ensureRepoBranchExists(sourceDir, remote);
     })
 
     //
