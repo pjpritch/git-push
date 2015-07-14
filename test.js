@@ -42,28 +42,41 @@ var spawn = require('child_process').spawn;
 // -H
 // "Authorization: token <insert token here>"
 
-var createProc = spawn('curl', ['-X', 'POST', 
-	'--data', '{"name": "test-domain-db5","description": "This is a test repository","homepage": "https://github.com/OpenCommerce","private": false,"has_issues": true,"has_wiki": true,"has_downloads": true}', 
-	'https://api.github.com/orgs/OpenCommerce/repos', 
-	'--header', 'Content-Type: application/json', 
-	'--header', 'Authorization: token <insert token here>'],
-	{cwd:'.',stdout:'inherit'});
+// var createProc = spawn('curl', ['-X', 'POST', 
+// 	'--data', '{"name": "test-domain-db5","description": "This is a test repository","homepage": "https://github.com/OpenCommerce","private": false,"has_issues": true,"has_wiki": true,"has_downloads": true}', 
+// 	'https://api.github.com/orgs/OpenCommerce/repos', 
+// 	'--header', 'Content-Type: application/json', 
+// 	'--header', 'Authorization: token <insert token here>'],
+// 	{cwd:'.',stdout:'inherit'});
 
-createProc.on('exit', function(code) {
-  console.log(code);
+// createProc.on('exit', function(code) {
+//   console.log(code);
+// });
+
+// createProc.stdout.on('data', function (data) {
+//   console.log('stdout: ' + data);
+// });
+
+// createProc.stderr.on('data', function (data) {
+//   console.log('stderr: ' + data);
+// });
+
+// createProc.on('close', function (code) {
+//   console.log('child process exited with code ' + code);
+// });
+
+
+var exec = require('child_process').exec;
+exec('git status', {cwd:'.',stdio:'inherit'}, function(err, stdio){
+	if( err ) {
+		console.error('error!'+err);
+	} else if( stdio.indexOf('nothing to commit, working directory clean')>-1 ) {
+		console.log('clean!');
+	} else {
+		console.log('dirty!');
+	}
 });
 
-createProc.stdout.on('data', function (data) {
-  console.log('stdout: ' + data);
-});
-
-createProc.stderr.on('data', function (data) {
-  console.log('stderr: ' + data);
-});
-
-createProc.on('close', function (code) {
-  console.log('child process exited with code ' + code);
-});
 
 // spawn('git', ['clone', 'https://github.com/OpenCommerce/test-domain-db.git', './tmp/test-domain-db3'], {cwd:'.',stdout:'inherit'})
 //   .on('exit', function(code) {
